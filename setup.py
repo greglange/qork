@@ -23,7 +23,6 @@ setup(
     # removed for better compat
     install_requires=[],
     scripts=[
-        'bin/qork-daemon',
         'bin/qork-manager',
         ],
     )
