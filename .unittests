@@ -1,0 +1,4 @@
+#!/bin/bash
+
+nosetests test_qork/unit -s --exe --with-coverage --cover-package qork --cover-erase
+rm -f .coverage

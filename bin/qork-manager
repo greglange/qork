@@ -1,0 +1,106 @@
+#!/usr/bin/env python
+
+from optparse import OptionParser
+from swift.common import utils
+from sys import argv, exit
+from qork.queue import QueueReader, MessageQueue
+
+
+def help_exit():
+    print '%s -h to see usage' % (argv[0])
+
+
+def make_search_dicts(options):
+    meta, body = {}, {}
+
+    for key in 'message_id end_timestamp begin_timestamp queue_name'.split():
+        if getattr(options, key):
+            meta[key] = getattr(options, key)
+
+    for key in 'worker_type'.split():
+        if getattr(options, key):
+            body[key] = getattr(options, key)
+
+    return meta, body
+
+
+if __name__ == '__main__':
+    parser = OptionParser(usage='%prog CONF_FILE [options]')
+    parser.add_option('-L', '--list-queues', dest='list_all_queues',
+        action='store_true', default=False,
+        help='List all work queues with message counts')
+    parser.add_option('-P', '--print-messages', dest='print_all_messages',
+        action='store_true', default=False,
+        help='Print all messages in all work queues')
+    parser.add_option('-D', '--delete-queues', dest='delete_queues',
+        default=False,
+        help='Delete all queues with global prefix DELETE_QUEUES')
+
+    parser.add_option('-p', '--print', dest='print_messages',
+        default=False, help='print messages')
+    parser.add_option('-r', '--restore', dest='restore_messages',
+        default=False, help='restore messages')
+    parser.add_option('-d', '--delete', dest='delete_messages',
+        default=False, help='delete messages')
+
+    parser.add_option('-w', '--worker-type', default=None, dest='worker_type',
+        help='Limit actions taken to this worker type')
+    parser.add_option('-m', '--message-id', default=None, dest='message_id',
+        help='Limit actions taken to this message id')
+    parser.add_option('-q', '--queue-name', default=None,
+        dest='queue_name', help='Limit actions taken to this queue name')
+    parser.add_option('-b', '--begin-timestamp', default=None,
+        dest='begin_timestamp',
+        help='Limit actions taken to after (or equal) this timestamp')
+    parser.add_option('-e', '--end-timestamp', default=None,
+        dest='end_timestamp',
+        help='Limit actions taken to before this timestamp')
+
+    args = argv[1:]
+    if not args or len(args) < 2:
+        args.append('-h')
+
+    (options, args) = parser.parse_args(args)
+
+    if len(args) != 1:
+        help_exit()
+
+    conf = utils.readconf(args[0], 'qork')
+
+    queues = set(conf['read_queues'].split() + conf['write_queues'].split())
+
+    if options.list_all_queues:
+        qr = QueueReader(conf['sqs_access_key'], conf['sqs_secret_access_key'],
+            conf['global_prefix'], queues)
+        for queue in qr.get_queues(True):
+            print '%s: %d' % (queue.name, queue.message_count())
+    elif options.print_all_messages:
+        qr = QueueReader(conf['sqs_access_key'], conf['sqs_secret_access_key'],
+           conf['global_prefix'], queues)
+        for queue in qr.get_queues(True):
+            for message in queue.read_messages():
+                print message
+    elif options.delete_queues:
+        qr = QueueReader(conf['sqs_access_key'], conf['sqs_secret_access_key'],
+           conf['global_prefix'], queues)
+        prefix = '%s_' % (options.delete_queues)
+        for queue in qr.get_queues(True):
+            if queue.name.startswith(prefix):
+                queue.delete()
+    elif options.print_messages:
+        queue = MessageQueue(conf['sqs_access_key'],
+             conf['sqs_secret_access_key'], options.print_messages)
+        for message in queue.search_messages(*make_search_dicts(options)):
+            print message
+    elif options.restore_messages:
+        queue = MessageQueue(conf['sqs_access_key'],
+             conf['sqs_secret_access_key'], options.restore_messages)
+        for message in queue.search_messages(*make_search_dicts(options)):
+            message.restore()
+    elif options.delete_messages:
+        queue = MessageQueue(conf['sqs_access_key'],
+             conf['sqs_secret_access_key'], options.delete_messages)
+        for message in queue.search_messages(*make_search_dicts(options)):
+            message.delete()
+    else:
+        help_exit()

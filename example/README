@@ -1,0 +1,41 @@
+To run the example:
+
+1)  You'll need an Amazon SQS account and set of keys.
+
+2)  Install the daemonx module.  You can run "sudo python setup.py develop" to
+do that.
+
+3)  Install the qork module.  You can run "sudo python setup.py develop" to
+do that.
+
+4)  Make a directory ~/qork_example and copy all the files from this directory
+into it.  Change dir into ~/qork_example.
+
+5)  Edit the example.conf file.  Add sqs keys.  Change user to your user.
+
+6)  Run "./make_messages.py example.conf" to make the work messages.
+
+7)  Run "qork-manager example.conf -L" to see the message queues and their
+message counts.
+
+8)  Run "qork-manager example.conf -P | less" to see the messages.
+
+9)  Run the qork daemon to process the messages by running
+"daemonx example.conf qork_daemon run_once".
+
+10)  Run "ls *.result" and "cat *.result" to see the files created by the
+workers.
+
+11)  Run "qork-manager example.conf -L" and "qork-manager example.conf -P" to
+see that the work messages are gone and that some of the division work was
+moved to a failure queue.  Note that the exceptions that cause the failures
+appear in the messages.  Also note that there are three exceptions for each
+message because the work was attempted three times before being moved to
+the failure queue.
+
+12)  Run "qork-manager example.conf -r example_divide_failure" to move the
+failed example_divide messages back to their work queue.  If the failure of a
+worker is due to a temporary thing or a thing that has been fixed, the work
+can be rescheduled in this way.  Run "qork-manager example.conf -L" to see
+that the messages were moved back and run "qork-manager example.conf -P" to
+see that the exceptions were cleared from the messages.

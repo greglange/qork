@@ -1,0 +1,14 @@
+############
+### qork ###
+############
+
+Qork is Queue plus Work.
+
+Qork is the following:
+
+1)  Code to put work in queues and manipulate the messages in those queues.
+
+2)  Code to spawn workers to read from queues and do the work.
+
+See the README in ~/example and the code in ~/example and ~/qork/example for
+usage.
