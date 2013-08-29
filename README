@@ -12,3 +12,7 @@ Qork is the following:
 
 See the README in ~/example and the code in ~/example and ~/qork/example for
 usage.
+
+# Requirements
+
+https://github.com/boto/boto
