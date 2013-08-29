@@ -20,44 +20,6 @@ import util
 
 class TestDaemon(util.MockerTestCase):
 
-    def test_init(self):
-        conf = {
-            'qork_daemon': {
-                'worker_count': 4,
-                'visibility_timeout': 10,
-                'interval': 100,
-            },
-
-            'qork': {
-                'sqs_access_key': 'some_access_key',
-                'sqs_secret_access_key': 'some_secret_access_key',
-                'global_prefix': 'some_global_prefix',
-                'read_queues': 'work more_work even_more_work',
-            },
-        }
-
-        class Pool(object):
-            def __init__(_, worker_count):
-                self.assertEquals(conf['qork_daemon']['worker_count'],
-                                  worker_count)
-
-        class QueueReader(object):
-            def __init__(_, *args):
-                for i, key in enumerate("sqs_access_key sqs_secret_access_key "
-                                        "global_prefix".split()):
-                    self.assertEquals(conf['qork'][key], args[i])
-                self.assertEquals(
-                    conf['qork']['read_queues'].split(), args[-2])
-
-        self.mock(daemon, 'Pool', Pool)
-        self.mock(daemon, 'QueueReader', QueueReader)
-
-        d = daemon.Daemon(conf, 'qork_daemon')
-        self.assertEquals(conf, d.global_conf)
-        self.assertEquals(conf['qork_daemon'], d.conf)
-        self.assertEquals(conf['qork_daemon']['visibility_timeout'], d.vtime)
-        self.assertEquals(conf['qork_daemon']['interval'], d.interval)
-
     def test_get_worker_class(self):
         conf = {
             'worker-some_worker': {
