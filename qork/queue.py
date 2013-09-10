@@ -85,6 +85,7 @@ class QueueWriter(object):
             self._access_key, self._secret_access_key, queue_name)
         queue.send_message(msg)
 
+
 class MessageQueue(object):
     """Work queue, a SQS wrapper"""
 
