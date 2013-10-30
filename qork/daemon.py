@@ -27,7 +27,6 @@ class Daemon(Daemonx):
         qd_conf = self.global_conf['qork_daemon']
         self._pool = Pool(int(qd_conf.get('worker_count', 4)))
         self.vtime = int(qd_conf.get('visibility_timeout', 3600))
-        self.interval = int(qd_conf.get('interval', 300))
 
         q_conf = self.global_conf['qork']
         self._queue_reader = QueueReader(
