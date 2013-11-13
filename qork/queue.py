@@ -1,4 +1,4 @@
-# Copyright (c) 2013 Greg Lange
+# Copyright (c) 2013 Greg L def from_sqs_message(class, sqs_message)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -117,20 +117,38 @@ class MessageQueue(object):
     def delete(self):
         self._sqs_queue.delete()
 
-    def delete_message(self, sqs_message):
+    def delete_message(self, receipt_handle):
         """Delete SQS message"""
-        self._sqs_queue.delete_message(sqs_message)
+        # future versions of boto have a built in method to do this
+        # this works with 1.9
+        params = {'ReceiptHandle' : receipt_handle}
+        return self._conn.get_status(
+            'DeleteMessage', params, self._sqs_queue.id)
+
+        self._conn.delete_message_from_handle(sqs_message)
 
     def get_message(self, vtime):
         """Returns a message"""
         sqs_message = self._sqs_queue.read(vtime)
         if sqs_message:
-            return Message(self, sqs_message, self._max_failure_count)
+            return self.message_from_sqs(sqs_message)
         return None
 
     def message_count(self):
         """Returns number of messages in queue"""
         return self._sqs_queue.count()
+
+    def message_from_sqs(self, sqs_message):
+        msg = loads(sqs_message.get_body())
+        return Message(
+            self, sqs_message.receipt_handle, msg, self._max_failure_count)
+
+    def message_from_dict(self, data):
+        return Message(
+            self, data['receipt_handle'], data['msg'], self._max_failure_count)
+
+    def message_from_json(self, json):
+        return self.message_from_dict(loads(json))
 
     def read_messages(self):
         """Yields each message in queue once"""
@@ -142,7 +160,7 @@ class MessageQueue(object):
                 vtime += 1
             else:
                 seen.add(sqs_message.id)
-                yield Message(self, sqs_message)
+                yield self.message_from_sqs(sqs_message)
             sqs_message = self._sqs_queue.read(vtime)
 
     def search_messages(self, meta, body):
@@ -183,11 +201,11 @@ class MessageQueue(object):
 class Message(object):
     """Work message, an SQS message wrapper"""
 
-    def __init__(self, queue, sqs_message, max_failure_count=10):
-        self._queue = queue
-        self._sqs_message = sqs_message
+    def __init__(self, queue, receipt_handle, msg, max_failure_count=10):
+        self.queue = queue
+        self.receipt_handle = receipt_handle
+        self.msg = msg
         self._max_failure_count = int(max_failure_count)
-        self._msg = None
 
     def __str__(self):  # pragma: no cover
         """Returns a well formatted string version of message"""
@@ -213,7 +231,7 @@ class Message(object):
 
     def delete(self):
         """Deletes message from queue"""
-        self._queue.delete_message(self._sqs_message)
+        self.queue.delete_message(self.receipt_handle)
 
     @property
     def body(self):
@@ -238,9 +256,9 @@ class Message(object):
             self.meta['exceptions'] = []
         self.meta['exceptions'].append(self._get_exception())
         if self.meta['failure_count'] < self._max_failure_count:
-            self._queue.send_message(self.msg)
+            self.queue.send_message(self.msg)
         else:
-            self._queue.send_failure(self.msg)
+            self.queue.send_failure(self.msg)
         self.delete()
 
     @property
@@ -264,13 +282,6 @@ class Message(object):
                 return False
         return True
 
-    @property
-    def msg(self):
-        """Returns a message's msg dict"""
-        if self._msg is None:
-            self._msg = loads(self._sqs_message.get_body())
-        return self._msg
-
     def restore(self):
         """Move a failed message back to work queue"""
         msg = {
@@ -281,5 +292,15 @@ class Message(object):
             },
             'body': self.body,
         }
-        self._queue.send_restore(msg)
+        self.queue.send_restore(msg)
         self.delete()
+
+    def to_dict(self):
+        return {
+            'queue_name': self.queue.name,
+            'receipt_handle': self.receipt_handle,
+            'msg': self.msg,
+        }
+
+    def to_json(self):
+        return dumps(self.to_dict())

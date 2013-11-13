@@ -24,18 +24,17 @@ class Daemon(Daemonx):
     def __init__(self, *args, **kwargs):
         super(Daemon, self).__init__(*args, **kwargs)
 
-        qd_conf = self.global_conf['qork_daemon']
-        self._pool = Pool(int(qd_conf.get('worker_count', 4)))
-        self.vtime = int(qd_conf.get('visibility_timeout', 3600))
+        self.pool = Pool(int(self.conf.get('worker_count', 4)))
 
         q_conf = self.global_conf['qork']
-        self._queue_reader = QueueReader(
+        self.queue_reader = QueueReader(
             q_conf['sqs_access_key'],
             q_conf['sqs_secret_access_key'],
             q_conf['global_prefix'],
             q_conf['read_queues'].split(),
-            int(qd_conf.get('max_failure_count', 3))
+            int(self.conf.get('max_failure_count', 3))
         )
+        self.vtime = int(q_conf.get('visibility_timeout', 3600))
 
     def get_worker_class(self, message):
         """Returns class of worker needed to do message's work"""
@@ -52,22 +51,25 @@ class Daemon(Daemonx):
             message.handle_exception()
         return None
 
+    def process_message(self, message):
+         klass = self.get_worker_class(message)
+         if klass:
+             self.logger.info('Processing message %s with %s' % (
+                 message.meta['message_id'],
+                 message.body['worker_type']))
+             conf_section = 'worker-%s' % (message.body['worker_type'])
+             self.pool.start(
+                 klass.run_with_message,
+                 args=[self.logger, self.global_conf, conf_section,
+                       message])
+             self.pool.wait()
+
     def run_once(self, *args, **kwargs):
         """Run the daemon one time"""
         self.logger.info('Run begin')
-        message = self._queue_reader.get_message(self.vtime)
+        message = self.queue_reader.get_message(self.vtime)
         while message:
-            klass = self.get_worker_class(message)
-            if klass:
-                self.logger.info('Processing message %s with %s' % (
-                    message.meta['message_id'],
-                    message.body['worker_type']))
-                conf_section = 'worker-%s' % (message.body['worker_type'])
-                self._pool.start(
-                    klass.run_with_message,
-                    args=[self.logger, self.global_conf, conf_section,
-                          message])
-                self._pool.wait()
-            message = self._queue_reader.get_message(self.vtime)
-        self._pool.join()
+            self.process_message(message)
+            message = self.queue_reader.get_message(self.vtime)
+        self.pool.join()
         self.logger.info('Run end')
