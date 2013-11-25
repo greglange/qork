@@ -25,8 +25,8 @@ class Daemon(Daemonx):
         super(Daemon, self).__init__(*args, **kwargs)
 
         qd_conf = self.global_conf['qork_daemon']
-        self._pool = Pool(int(qd_conf.get('worker_count', 4)))
         self.vtime = int(qd_conf.get('visibility_timeout', 3600))
+        self.pool = Pool(int(qd_conf.get('worker_count', 4)), self.vtime)
 
         q_conf = self.global_conf['qork']
         self._queue_reader = QueueReader(
@@ -63,11 +63,11 @@ class Daemon(Daemonx):
                     message.meta['message_id'],
                     message.body['worker_type']))
                 conf_section = 'worker-%s' % (message.body['worker_type'])
-                self._pool.start(
+                self.pool.start(
                     klass.run_with_message,
                     args=[self.logger, self.global_conf, conf_section,
                           message])
-                self._pool.wait()
+                self.pool.wait()
             message = self._queue_reader.get_message(self.vtime)
-        self._pool.join()
+        self.pool.join()
         self.logger.info('Run end')

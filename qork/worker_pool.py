@@ -20,31 +20,42 @@ from multiprocessing import Process
 class Pool(object):
     """Manages a pool of workers"""
 
-    def __init__(self, worker_count):
+    def __init__(self, worker_count, worker_timeout=None):
+        # (start_time, process)
         self.workers = [None] * int(worker_count)
+        self.worker_timeout = worker_timeout
 
     def free_workers(self):
         """Return the number of free workers"""
         for i, worker in enumerate(self.workers):
-            if worker and not worker.is_alive():
+            if not worker:
+                continue
+            if not worker[1].is_alive():
+                worker[1].join()
                 self.workers[i] = None
-                worker.join()
+            elif self.worker_timeout and \
+                    time.time() - worker[0] > self.worker_timeout:
+                worker[1].terminate()
+                worker[1].join()
+                self.workers[i] = None
         return self.workers.count(None)
 
-    def join(self):
+    def join(self, sleep=5):
         """Join all active workers"""
-        for i, worker in enumerate(self.workers):
-            if worker:
-                self.workers[i] = None
-                worker.join()
+        while self.free_workers() < len(self.workers):
+            time.sleep(sleep)
 
     def start(self, target, args=[], kwargs={}):
         """Spawns a new process"""
         for i, worker in enumerate(self.workers):
             if worker is None:
-                self.workers[i] = Process(target=target, args=args,
-                                          kwargs=kwargs)
-                self.workers[i].start()
+                worker = (
+                    time.time(),
+                    Process(target=target, args=args, kwargs=kwargs)
+                    )
+                worker[1].daemon = True
+                worker[1].start()
+                self.workers[i] = worker
                 return
         raise RuntimeError("No available workers")
 
