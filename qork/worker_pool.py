@@ -13,8 +13,11 @@
 # permissions and limitations under the License
 
 import time
-
 from multiprocessing import Process
+import os
+import signal
+
+from daemonx.daemon import kill_child_process
 
 
 class Pool(object):
@@ -35,8 +38,10 @@ class Pool(object):
                 self.workers[i] = None
             elif self.worker_timeout and \
                     time.time() - worker[0] > self.worker_timeout:
-                worker[1].terminate()
-                worker[1].join()
+                # TODO: is this ok?  it seems to work
+                # may need to write some code to get a Process class
+                # works like I want it to
+                os.kill(worker[1].pid, signal.SIGKILL)
                 self.workers[i] = None
         return self.workers.count(None)
 

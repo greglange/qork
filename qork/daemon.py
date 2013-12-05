@@ -57,6 +57,7 @@ class Daemon(Daemonx):
         self.logger.info('Run begin')
         message = self._queue_reader.get_message(self.vtime)
         while message:
+            self.update_progress_marker()
             klass = self.get_worker_class(message)
             if klass:
                 self.logger.info('Processing message %s with %s' % (
@@ -71,3 +72,4 @@ class Daemon(Daemonx):
             message = self._queue_reader.get_message(self.vtime)
         self.pool.join()
         self.logger.info('Run end')
+        self.update_progress_marker(True)
