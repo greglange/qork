@@ -14,7 +14,6 @@
 
 from daemonx.daemon import Daemon as Daemonx
 
-from qork.queue import QueueReader
 from qork.worker_pool import Pool
 
 
@@ -29,13 +28,9 @@ class Daemon(Daemonx):
         self.pool = Pool(int(qd_conf.get('worker_count', 4)), self.vtime)
 
         q_conf = self.global_conf['qork']
-        self._queue_reader = QueueReader(
-            q_conf['sqs_access_key'],
-            q_conf['sqs_secret_access_key'],
-            q_conf['global_prefix'],
-            q_conf['read_queues'].split(),
-            int(qd_conf.get('max_failure_count', 3))
-        )
+        # that last param is whack
+        queue = __import__(q_conf['queue_module'], globals(), locals(), [''])
+        self._queue_reader = queue.QueueReader(q_conf)
 
     def get_worker_class(self, message):
         """Returns class of worker needed to do message's work"""
@@ -55,7 +50,7 @@ class Daemon(Daemonx):
     def run_once(self, *args, **kwargs):
         """Run the daemon one time"""
         self.logger.info('Run begin')
-        message = self._queue_reader.get_message(self.vtime)
+        message = self._queue_reader.get_message()
         while message:
             self.update_progress_marker()
             klass = self.get_worker_class(message)
@@ -69,7 +64,7 @@ class Daemon(Daemonx):
                     args=[self.logger, self.global_conf, conf_section,
                           message])
                 self.pool.wait()
-            message = self._queue_reader.get_message(self.vtime)
+            message = self._queue_reader.get_message()
         self.pool.join()
         self.logger.info('Run end')
         self.update_progress_marker(True)

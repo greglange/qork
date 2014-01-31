@@ -29,10 +29,10 @@ class Worker(object):
     @classmethod
     def from_message(cls, global_conf, conf_section, message):
         """Creates worker from message"""
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def handle_alarm(self, signum, frame):
-        raise RuntimeError("Worker timed out")
+        raise RuntimeError('Worker timed out')
 
     @classmethod
     def run_with_message(cls, logger, global_conf, conf_section, message):
@@ -58,4 +58,24 @@ class Worker(object):
 
     def run(self):
         """Does this worker's work"""
-        raise NotImplementedError
+        raise NotImplementedError()
+
+
+class DoNothingWorker(Worker):
+    def run(self):
+        pass
+
+    @classmethod
+    def from_message(cls, global_conf, conf_section, message):
+        """Creates worker from message"""
+        return cls(global_conf, conf_section, message)
+
+
+class RaiseExceptionWorker(Worker):
+    def run(self):
+        raise RuntimeError('All I do is blow up')
+
+    @classmethod
+    def from_message(cls, global_conf, conf_section, message):
+        """Creates worker from message"""
+        return cls(global_conf, conf_section, message)

@@ -16,7 +16,7 @@ import json
 import random
 import uuid
 
-from qork import queue
+from qork.queue import aws as queue
 import util
 
 
