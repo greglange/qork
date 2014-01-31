@@ -16,7 +16,7 @@
 from optparse import OptionParser
 from swift.common import utils
 from sys import argv, exit
-from qork.queue import QueueReader, MessageQueue
+import qork.queue
 
 
 def help_exit():
@@ -80,40 +80,35 @@ if __name__ == '__main__':
 
     conf = utils.readconf(args[0], 'qork')
 
-    queues = set(conf['read_queues'].split() + conf['write_queues'].split())
+    # that last param is whack
+    queue = __import__(conf['queue_module'], globals(), locals(), [''])
 
     if options.list_all_queues:
-        qr = QueueReader(conf['sqs_access_key'], conf['sqs_secret_access_key'],
-            conf['global_prefix'], queues)
-        for queue in qr.get_queues(True):
-            print '%s: %d' % (queue.name, queue.message_count())
+        qr = queue.QueueReader(conf)
+        for q in qr.get_queues(True):
+            print '%s: %d' % (q.name, q.message_count())
     elif options.print_all_messages:
-        qr = QueueReader(conf['sqs_access_key'], conf['sqs_secret_access_key'],
-           conf['global_prefix'], queues)
-        for queue in qr.get_queues(True):
-            for message in queue.read_messages():
+        qr = queue.QueueReader(conf)
+        for q in qr.get_queues(True):
+            for message in q.read_messages():
                 print message
     elif options.delete_queues:
-        qr = QueueReader(conf['sqs_access_key'], conf['sqs_secret_access_key'],
-           conf['global_prefix'], queues)
+        qr = queue.QueueReader(conf)
         prefix = '%s_' % (options.delete_queues)
-        for queue in qr.get_queues(True):
-            if queue.name.startswith(prefix):
-                queue.delete()
+        for q in qr.get_queues(True):
+            if q.name.startswith(prefix):
+                q.delete()
     elif options.print_messages:
-        queue = MessageQueue(conf['sqs_access_key'],
-             conf['sqs_secret_access_key'], options.print_messages)
-        for message in queue.search_messages(*make_search_dicts(options)):
+        q = queue.MessageQueue(conf, options.print_messages)
+        for message in q.search_messages(*make_search_dicts(options)):
             print message
     elif options.restore_messages:
-        queue = MessageQueue(conf['sqs_access_key'],
-             conf['sqs_secret_access_key'], options.restore_messages)
-        for message in queue.search_messages(*make_search_dicts(options)):
+        q = queue.MessageQueue(conf, options.restore_messages)
+        for message in q.search_messages(*make_search_dicts(options)):
             message.restore()
     elif options.delete_messages:
-        queue = MessageQueue(conf['sqs_access_key'],
-             conf['sqs_secret_access_key'], options.delete_messages)
-        for message in queue.search_messages(*make_search_dicts(options)):
+        q = queue.MessageQueue(conf, options.delete_messages)
+        for message in q.search_messages(*make_search_dicts(options)):
             message.delete()
     else:
         help_exit()

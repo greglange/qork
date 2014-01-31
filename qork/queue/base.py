@@ -21,8 +21,18 @@ import sys
 import traceback
 from uuid import uuid4
 
+from qork.utils import list_from_csv
+
 
 FOURTEEN_DAYS = 14 * 24 * 60 * 60
+
+
+def get_vtime(conf):
+    return int(conf.get('vtime', 30*60))
+
+
+def get_max_failure_count(conf):
+    return int(conf.get('max_failure_count', 10))
 
 
 def timestamp():  # pragma: no cover
@@ -32,58 +42,35 @@ def timestamp():  # pragma: no cover
 class QueueReader(object):
     """Reads messages from work queues, respecting priority"""
 
-    def __init__(self, access_key, secret_access_key, global_prefix,
-                 queue_prefixes, max_failure_count=10):
-        self._queue_prefixes = ['%s_%s' % (global_prefix, x) for x in
-                                queue_prefixes]
-        self._access_key = access_key
-        self._secret_access_key = secret_access_key
-        self._conn = SQSConnection(access_key, secret_access_key)
-        self._max_failure_count = int(max_failure_count)
+    def __init__(self, conf):
+        self._conf = conf
+        self._queue_prefixes = [
+            '%s_%s' % (conf['global_prefix'], x) for x in
+            list_from_csv(conf['read_queues'])]
 
-    def get_message(self, vtime):
+    def get_message(self):
         """Returns the next message from work queues"""
         for queue in self.get_queues():
-            message = queue.get_message(vtime)
+            message = queue.get_message()
             if message:
                 return message
         return None
 
     def get_queues(self, include_failure_queues=False):
         """Returns queues in priority order"""
-        for prefix in self._queue_prefixes:
-            failure_queue = None
-            for sqs_queue in sorted(self._conn.get_all_queues(prefix),
-                                    key=lambda x: x.name):
-                if sqs_queue.name.endswith('_failure'):
-                    failure_queue = sqs_queue.name
-                    continue
-                yield MessageQueue(self._access_key, self._secret_access_key,
-                                   sqs_queue.name,
-                                   max_failure_count=self._max_failure_count)
-            if include_failure_queues and failure_queue:
-                yield MessageQueue(self._access_key, self._secret_access_key,
-                                   failure_queue,
-                                   max_failure_count=self._max_failure_count)
+        raise NotImplementedError()
 
 
 class QueueWriter(object):
     """Writes messages to multiple queues"""
 
-    def __init__(self, access_key, secret_access_key, global_prefix, queues):
-        self._access_key = access_key
-        self._secret_access_key = secret_access_key
-        self._global_prefix = global_prefix
-        self._queues = queues
+    def __init__(self, conf):
+        self._conf = conf
+        self._global_prefix = conf['global_prefix']
+        self._queues = list_from_csv(conf['write_queues'])
 
     def send_message(self, queue_name, msg):
-        if not queue_name in self._queues:
-            raise ValueError('Unexpected queue name')
-
-        queue_name = '%s_%s' % (self._global_prefix, queue_name)
-        queue = MessageQueue(
-            self._access_key, self._secret_access_key, queue_name)
-        queue.send_message(msg)
+        raise NotImplementedError()
 
 
 class MessageQueue(object):
@@ -91,11 +78,8 @@ class MessageQueue(object):
 
     # name convention is [queue_name]_[timestamp] or [queue_name]
 
-    def __init__(self, access_key, secret_access_key, name, sqs_queue=None,
-                 max_failure_count=10):
-        self._access_key = access_key
-        self._secret_access_key = secret_access_key
-        self._conn = SQSConnection(self._access_key, self._secret_access_key)
+    def __init__(self, conf, name):
+        self._conf = conf
         self.name = name
         if re.search('_[0-9]+$', self.name):
             self._failure_queue_name = '%s_failure' % \
@@ -104,46 +88,26 @@ class MessageQueue(object):
             self._failure_queue_name = None
         else:
             self._failure_queue_name = '%s_failure' % (self.name)
-        if sqs_queue:
-            if self.name != sqs_queue.name:
-                raise ValueError('Queue names do not match')
-            self._sqs_queue = sqs_queue
-        else:
-            self._sqs_queue = self._conn.create_queue(self.name)
-            self._sqs_queue.set_attribute(
-                'MessageRetentionPeriod', FOURTEEN_DAYS)
-        self._max_failure_count = int(max_failure_count)
 
     def delete(self):
-        self._sqs_queue.delete()
+        """Deletes the queue"""
+        raise NotImplementedError()
 
-    def delete_message(self, sqs_message):
+    def delete_message(self, message):
         """Delete SQS message"""
-        self._sqs_queue.delete_message(sqs_message)
+        raise NotImplementedError()
 
-    def get_message(self, vtime):
+    def get_message(self):
         """Returns a message"""
-        sqs_message = self._sqs_queue.read(vtime)
-        if sqs_message:
-            return Message(self, sqs_message, self._max_failure_count)
-        return None
+        raise NotImplementedError()
 
     def message_count(self):
         """Returns number of messages in queue"""
-        return self._sqs_queue.count()
+        raise NotImplementedError()
 
     def read_messages(self):
         """Yields each message in queue once"""
-        vtime = 1
-        seen = set()
-        sqs_message = self._sqs_queue.read(vtime)
-        while sqs_message:
-            if sqs_message.id in seen:
-                vtime += 1
-            else:
-                seen.add(sqs_message.id)
-                yield Message(self, sqs_message)
-            sqs_message = self._sqs_queue.read(vtime)
+        raise NotImplementedError()
 
     def search_messages(self, meta, body):
         """Yields messages that match search dicts"""
@@ -153,40 +117,25 @@ class MessageQueue(object):
 
     def send_failure(self, msg):
         """Puts message in queue's failure queue"""
-        queue = MessageQueue(self._access_key, self._secret_access_key,
-                             self._failure_queue_name)
-        queue.send_message(msg)
+        raise NotImplementedError()
 
     def send_restore(self, msg):
         """Puts message from failure queue back in work queue"""
-        queue = MessageQueue(self._access_key, self._secret_access_key,
-                             msg['meta']['queue_name'])
-        queue.send_message(msg)
+        raise NotImplementedError()
 
     def send_message(self, msg):
         """Sends message to queue"""
-        if type(msg) != dict:
-            raise ValueError("Message must be a dict()")
-
-        if not('body' in msg and 'meta' in msg):
-            msg = {'meta': {}, 'body': msg}
-            msg['meta']['message_id'] = str(uuid4())
-            msg['meta']['queue_name'] = self.name
-            msg['meta']['timestamp'] = timestamp()
-
-        sqs_message = SQSMessage()
-        sqs_message.set_body(dumps(msg, default=lambda x: str(x)))
-        if not self._sqs_queue.write(sqs_message):
-            raise RuntimeError("Writing message failed")
+        raise NotImplementedError()
 
 
 class Message(object):
     """Work message, an SQS message wrapper"""
 
-    def __init__(self, queue, sqs_message, max_failure_count=10):
+    def __init__(self, conf, queue, message):
+        self._conf = conf
         self._queue = queue
-        self._sqs_message = sqs_message
-        self._max_failure_count = int(max_failure_count)
+        self._message = message
+        self._max_failure_count = get_max_failure_count(conf)
         self._msg = None
 
     def __str__(self):  # pragma: no cover
@@ -213,12 +162,16 @@ class Message(object):
 
     def delete(self):
         """Deletes message from queue"""
-        self._queue.delete_message(self._sqs_message)
+        raise NotImplementedError()
 
     @property
     def body(self):
         """Returns the body of the message"""
         return self.msg['body']
+
+    def get_body(self):
+        """Deletes message from queue"""
+        raise NotImplementedError()
 
     def _get_exception(self):
         """Gets exception for storage/future reference"""
@@ -268,7 +221,13 @@ class Message(object):
     def msg(self):
         """Returns a message's msg dict"""
         if self._msg is None:
-            self._msg = loads(self._sqs_message.get_body())
+            body = self.get_body()
+            if isinstance(body, str):
+                self._msg = loads(self.get_body())
+            elif isinstance(body, dict):
+                self._msg = body
+            else:
+                raise RuntimeError('Unexected body type')
         return self._msg
 
     def restore(self):
