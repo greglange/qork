@@ -124,7 +124,8 @@ class RAXConnection(object):
 
         body = dumps(data)
         resp = make_http_request(
-            'POST', self.identity_end_point, headers, body, 1, (2,), 3)
+            'POST', self.identity_end_point, headers, body, self.timeout,
+            (2,), 3)
 
         data = loads(resp.read())
         self._auth_token = data['access']['token']['id']
