@@ -56,14 +56,16 @@ def make_http_request(
 
 
 class RAXConnection(object):
+    _auth_token = None
+
     def __init__(self, conf):
         self._conf = conf
         self.identity_end_point = conf['identity_end_point']
         self.username = conf['username']
         self.api_key = conf['api_key']
-        self._auth_token = None
         self.end_point = conf['end_point']
         self.timeout = int(conf.get('timeout', 10))
+        self.attempts = int(conf.get('attempts', 5))
 
     @property
     def auth_token(self):
@@ -73,7 +75,7 @@ class RAXConnection(object):
 
     def create_queue(self, name):
         path = 'queues/%s' % (name)
-        self.make_request('PUT', path, {}, '', (2,), 3)
+        self.make_request('PUT', path, {}, '', (2,))
         return RAXQueue(self, name)
 
     def get_all_queues(self, prefix=None):
@@ -89,8 +91,7 @@ class RAXConnection(object):
                 params += '&marker=%s' % (marker)
             this_request = '%s?%s' % (path, params)
 
-            resp = self.make_request(
-                'GET', this_request, {}, '', (2,), 3)
+            resp = self.make_request('GET', this_request, {}, '', (2,))
             if resp.status == 204:
                 break
             data = loads(resp.read())
@@ -132,13 +133,10 @@ class RAXConnection(object):
 
     def get_queue_stats(self, name):
         path = 'queues/%s/stats' % (name)
-        resp = self.make_request('GET', path, {}, '', (2,), 3)
+        resp = self.make_request('GET', path, {}, '', (2,))
         return loads(resp.read())
 
-    def make_request(
-            self, method, path, headers, body, acceptable_statuses,
-            attempts):
-
+    def make_request( self, method, path, headers, body, acceptable_statuses):
         url = '%s/%s' % (self.end_point, path)
         headers = dict(headers)
         acceptable_statuses = list(acceptable_statuses) + [401,]
@@ -149,7 +147,7 @@ class RAXConnection(object):
             headers['Client-ID'] = 'e58668fc-26eb-11e3-8270-5b3128d43830'
             headers['X-Auth-Token'] = self.auth_token
             resp = make_http_request(method, url, headers, body, self.timeout,
-                acceptable_statuses, attempts)
+                acceptable_statuses, self.attempts)
 
             if resp.status == 401:
                 self.get_auth_token()
@@ -186,14 +184,14 @@ class RAXQueue(object):
 
     def delete(self):
         path = 'queues/%s' % (self.name)
-        self._conn.make_request('DELETE', path, {}, '', (2,), 3)
+        self._conn.make_request('DELETE', path, {}, '', (2,))
 
     def delete_message(self, message):
         path = 'queues/%s/messages/%s' % (
             self.name, message.id)
         if message.claim_id:
             path += '?claim_id=%s' % (message.claim_id)
-        self._conn.make_request('DELETE', path, {}, '', (2,), 3)
+        self._conn.make_request('DELETE', path, {}, '', (2,))
 
     # get/claim next message
     def read(self, vtime):
@@ -205,8 +203,7 @@ class RAXQueue(object):
             'ttl': vtime,
             'grace': MAX_GRACE,
         }
-        resp = self._conn.make_request(
-            'POST', path, {}, dumps(data), (2,), 3)
+        resp = self._conn.make_request('POST', path, {}, dumps(data), (2,))
         if resp.status == 204:
             return None
         messages = loads(resp.read())
@@ -224,8 +221,7 @@ class RAXQueue(object):
                 params += '&marker=%s' % (marker)
             this_request = '%s?%s' % (path, params)
 
-            resp = self._conn.make_request(
-                'GET', this_request, {}, '', (2,), 3)
+            resp = self._conn.make_request('GET', this_request, {}, '', (2,))
             if resp.status == 204:
                 break
 
@@ -254,7 +250,7 @@ class RAXQueue(object):
                 'body': message,
             }
         ]
-        self._conn.make_request('POST', url, {}, dumps(data), (2,), 3)
+        self._conn.make_request('POST', url, {}, dumps(data), (2,))
 
 
 class QueueReader(base.QueueReader):
