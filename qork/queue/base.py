@@ -44,9 +44,13 @@ class QueueReader(object):
 
     def __init__(self, conf):
         self._conf = conf
-        self._queue_prefixes = [
+        self._global_prefix = conf['global_prefix']
+        self._read_queues = [
             '%s_%s' % (conf['global_prefix'], x) for x in
             list_from_csv(conf['read_queues'])]
+        self._write_queues = [
+            '%s_%s' % (conf['global_prefix'], x) for x in
+            list_from_csv(conf['write_queues'])]
 
     def get_message(self):
         """Returns the next message from work queues"""
@@ -56,8 +60,12 @@ class QueueReader(object):
                 return message
         return None
 
-    def get_queues(self, include_failure_queues=False):
-        """Returns queues in priority order"""
+    def get_all_queues(self):
+        """Returns all queues with global prefix"""
+        raise NotImplementedError()
+
+    def get_queues(self):
+        """Returns read queues in priority order"""
         raise NotImplementedError()
 
 

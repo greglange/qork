@@ -85,17 +85,17 @@ if __name__ == '__main__':
 
     if options.list_all_queues:
         qr = queue.QueueReader(conf)
-        for q in qr.get_queues(True):
+        for q in qr.get_all_queues():
             print '%s: %d' % (q.name, q.message_count())
     elif options.print_all_messages:
         qr = queue.QueueReader(conf)
-        for q in qr.get_queues(True):
+        for q in qr.get_all_queues():
             for message in q.read_messages():
                 print message
     elif options.delete_queues:
         qr = queue.QueueReader(conf)
         prefix = '%s_' % (options.delete_queues)
-        for q in qr.get_queues(True):
+        for q in qr.get_all_queues():
             if q.name.startswith(prefix):
                 q.delete()
     elif options.print_messages:

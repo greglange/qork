@@ -33,18 +33,20 @@ class QueueReader(base.QueueReader):
         self._conn = SQSConnection(
             conf['access_key'], conf['secret_access_key'])
 
-    def get_queues(self, include_failure_queues=False):
-        """Returns queues in priority order"""
-        for prefix in self._queue_prefixes:
-            failure_queue = None
-            for queue in sorted(self._conn.get_all_queues(prefix),
-                                    key=lambda x: x.name):
+    def get_all_queues(self):
+        """Returns all queues with global prefix"""
+        for queue in sorted(self._conn.get_all_queues(
+                self._global_prefix), key=lambda x: x.name):
+            yield MessageQueue(self._conf, queue.name)
+
+    def get_queues(self):
+        """Returns read_queues in priority order"""
+        for prefix in self._read_queues:
+            for queue in sorted(
+                    self._conn.get_all_queues(prefix), key=lambda x: x.name):
                 if queue.name.endswith('_failure'):
-                    failure_queue = queue.name
                     continue
                 yield MessageQueue(self._conf, queue.name)
-            if include_failure_queues and failure_queue:
-                yield MessageQueue(self._conf, failure_queue)
 
 
 class QueueWriter(base.QueueWriter):

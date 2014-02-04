@@ -264,17 +264,18 @@ class QueueReader(base.QueueReader):
         super(QueueReader, self).__init__(conf)
         self._conn = RAXConnection(conf)
 
-    def get_queues(self, include_failure_queues=False):
-        """Returns queues in priority order"""
-        for prefix in self._queue_prefixes:
-            failure_queue = None
+    def get_all_queues(self):
+        """Returns all queues"""
+        for queue in sorted(self._conn.get_all_queues(self._global_prefix)):
+            yield MessageQueue(self._conf, queue)
+
+    def get_queues(self):
+        """Returns read queues in priority order"""
+        for prefix in self._read_queues:
             for queue in sorted(self._conn.get_all_queues(prefix)):
                 if queue.endswith('_failure'):
-                    failure_queue = queue
                     continue
                 yield MessageQueue(self._conf, queue)
-            if include_failure_queues and failure_queue:
-                yield MessageQueue(self._conf, failure_queue)
 
 
 class QueueWriter(base.QueueWriter):
