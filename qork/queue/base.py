@@ -12,8 +12,6 @@
 # implied. See the License for the specific language governing
 # permissions and limitations under the License
 
-from boto.sqs.connection import SQSConnection
-from boto.sqs.message import Message as SQSMessage
 from datetime import datetime
 from json import loads, dumps
 import re
