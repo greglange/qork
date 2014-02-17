@@ -60,10 +60,10 @@ class RAXConnection(object):
 
     def __init__(self, conf):
         self._conf = conf
-        self.identity_end_point = conf['identity_end_point']
+        self.identity_end_point = conf['identity_end_point'].rstrip('/')
         self.username = conf['username']
         self.api_key = conf['api_key']
-        self.end_point = conf['end_point']
+        self.end_point = conf['end_point'].rstrip('/')
         self.timeout = int(conf.get('timeout', 10))
         self.attempts = int(conf.get('attempts', 5))
 

@@ -45,7 +45,9 @@ if __name__ == '__main__':
     parser.add_option('-P', '--print-messages', dest='print_all_messages',
         action='store_true', default=False,
         help='Print all messages in all work queues')
-    parser.add_option('-D', '--delete-queues', dest='delete_queues',
+    parser.add_option('-D', '--delete-queue', dest='delete_queue',
+        default=None, help='Delete specified queue')
+    parser.add_option('-X', '--delete-queues', dest='delete_queues',
         default=False,
         help='Delete all queues with global prefix DELETE_QUEUES')
 
@@ -92,6 +94,9 @@ if __name__ == '__main__':
         for q in qr.get_all_queues():
             for message in q.read_messages():
                 print message
+    elif options.delete_queue:
+        q = queue.MessageQueue(conf, options.delete_queue)
+        q.delete()
     elif options.delete_queues:
         qr = queue.QueueReader(conf)
         prefix = '%s_' % (options.delete_queues)
