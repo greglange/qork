@@ -58,6 +58,9 @@ if __name__ == '__main__':
     parser.add_option('-d', '--delete', dest='delete_messages',
         default=False, help='delete messages')
 
+    parser.add_option('-M', '--message_count', default=None,
+        dest='message_count', help='Print message count for queue')
+
     parser.add_option('-w', '--worker-type', default=None, dest='worker_type',
         help='Limit actions taken to this worker type')
     parser.add_option('-m', '--message-id', default=None, dest='message_id',
@@ -115,5 +118,12 @@ if __name__ == '__main__':
         q = queue.MessageQueue(conf, options.delete_messages)
         for message in q.search_messages(*make_search_dicts(options)):
             message.delete()
+    elif options.message_count:
+        q = queue.MessageQueue(conf, options.message_count)
+        print '%s: %d' % (q.name, q.message_count())
+        if not options.message_count.endswith('_failure'):
+            failure_queue = '%s_failure' % options.message_count
+            q = queue.MessageQueue(conf, failure_queue)
+            print '%s: %d' % (q.name, q.message_count())
     else:
         help_exit()
