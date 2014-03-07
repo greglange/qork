@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # Copyright (c) 2013 Greg Lange
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,7 +49,7 @@ if __name__ == '__main__':
         default=None, help='Delete specified queue')
     parser.add_option('-X', '--delete-queues', dest='delete_queues',
         default=False,
-        help='Delete all queues with global prefix DELETE_QUEUES')
+        help='Delete all queues with prefix DELETE_QUEUES')
 
     parser.add_option('-p', '--print', dest='print_messages',
         default=False, help='print messages')
@@ -102,9 +102,8 @@ if __name__ == '__main__':
         q.delete()
     elif options.delete_queues:
         qr = queue.QueueReader(conf)
-        prefix = '%s_' % (options.delete_queues)
         for q in qr.get_all_queues():
-            if q.name.startswith(prefix):
+            if q.name.startswith(options.delete_queues):
                 q.delete()
     elif options.print_messages:
         q = queue.MessageQueue(conf, options.print_messages)
