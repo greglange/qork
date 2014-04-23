@@ -267,6 +267,11 @@ class QueueReader(base.QueueReader):
         for queue in sorted(self._conn.get_all_queues(self._global_prefix)):
             yield MessageQueue(self._conf, queue)
 
+    def get_global_queues(self):
+        """Returns global queues"""
+        for queue in self._conn.get_all_queues():
+            yield MessageQueue(self._conf, queue)
+
     def get_queues(self):
         """Returns read queues in priority order"""
         for prefix in self._read_queues:

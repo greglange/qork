@@ -62,6 +62,10 @@ class QueueReader(object):
         """Returns all queues with global prefix"""
         raise NotImplementedError()
 
+    def get_global_queues(self):
+        """Returns global queues"""
+        raise NotImplementedError()
+
     def get_queues(self):
         """Returns read queues in priority order"""
         raise NotImplementedError()

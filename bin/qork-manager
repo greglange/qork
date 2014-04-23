@@ -39,6 +39,9 @@ def make_search_dicts(options):
 
 if __name__ == '__main__':
     parser = OptionParser(usage='%prog CONF_FILE [options]')
+    parser.add_option('-G', '--global-queues', dest='global_queues',
+        action='store_true', default=False,
+        help='List global queues with message counts')
     parser.add_option('-L', '--list-queues', dest='list_all_queues',
         action='store_true', default=False,
         help='List all work queues with message counts')
@@ -88,7 +91,11 @@ if __name__ == '__main__':
     # that last param is whack
     queue = __import__(conf['queue_module'], globals(), locals(), [''])
 
-    if options.list_all_queues:
+    if options.global_queues:
+        qr = queue.QueueReader(conf)
+        for q in qr.get_global_queues():
+            print '%s: %d' % (q.name, q.message_count())
+    elif options.list_all_queues:
         qr = queue.QueueReader(conf)
         for q in qr.get_all_queues():
             print '%s: %d' % (q.name, q.message_count())
