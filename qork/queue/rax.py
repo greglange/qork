@@ -52,7 +52,7 @@ def make_http_request(
             if attempt >= attempts - 1:
                 raise RuntimeError('Request to %s timed out.' % (url))
 
-    raise RuntimeError('Bad mojo')
+    raise RuntimeError('HTTP request failed: %s %s' % (method, url))
 
 
 class RAXConnection(object):
@@ -153,6 +153,8 @@ class RAXConnection(object):
                 self.get_auth_token()
                 continue
             return resp
+
+        raise RuntimeError('Request failed: %s %s' % (method, path))
 
 
 class RAXMessage(object):
