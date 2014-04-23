@@ -50,7 +50,11 @@ class Daemon(Daemonx):
     def run_once(self, *args, **kwargs):
         """Run the daemon one time"""
         self.logger.info('Run begin')
-        message = self._queue_reader.get_message()
+        try:
+            message = self._queue_reader.get_message()
+        except Exception:
+            self.logger.exception('Unable to get message')
+            return
         while message:
             self.update_progress_marker()
             klass = self.get_worker_class(message)
@@ -64,7 +68,11 @@ class Daemon(Daemonx):
                     args=[self.logger, self.global_conf, conf_section,
                           message])
                 self.pool.wait()
-            message = self._queue_reader.get_message()
+            try:
+                message = self._queue_reader.get_message()
+            except Exception:
+                self.logger.exception('Unable to get message')
+                break
         self.pool.join()
         self.logger.info('Run end')
         self.update_progress_marker(True)
