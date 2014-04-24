@@ -104,6 +104,7 @@ if __name__ == '__main__':
         for q in qr.get_all_queues():
             for message in q.read_messages():
                 print message
+                print
     elif options.delete_queue:
         q = queue.MessageQueue(conf, options.delete_queue)
         q.delete()
@@ -116,6 +117,7 @@ if __name__ == '__main__':
         q = queue.MessageQueue(conf, options.print_messages)
         for message in q.search_messages(*make_search_dicts(options)):
             print message
+            print
     elif options.restore_messages:
         q = queue.MessageQueue(conf, options.restore_messages)
         for message in q.search_messages(*make_search_dicts(options)):
