@@ -41,7 +41,7 @@ class Pool(object):
                 # TODO: is this ok?  it seems to work
                 # may need to write some code to get a Process class
                 # works like I want it to
-                os.kill(worker[i].pid, signal.SIGKILL)
+                os.kill(worker[1].pid, signal.SIGKILL)
                 self.workers[i] = None
         return self.workers.count(None)
 
