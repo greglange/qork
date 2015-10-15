@@ -15,6 +15,10 @@
 from signal import alarm, SIGALRM, signal
 
 
+class PostponeWork(Exception):
+    pass
+
+
 class Worker(object):
     """Does work required by messages from work queues"""
 
@@ -50,6 +54,8 @@ class Worker(object):
             signal(SIGALRM, worker.handle_alarm)
             alarm(worker.timeout_seconds)
             worker.run()
+        except PostponeWork:
+            pass
         except Exception:
             logger.exception('Running worker failed')
             message.handle_exception()
