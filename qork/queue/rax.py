@@ -13,16 +13,12 @@
 # permissions and limitations under the License
 
 from eventlet import Timeout
-from datetime import datetime
 from httplib import urlsplit, HTTPConnection, HTTPSConnection
 from json import loads, dumps
 import re
-import sys
-import traceback
 from uuid import uuid4
 
 import qork.queue.base as base
-from qork.utils import list_from_csv
 
 
 MAX_GRACE = 43200
@@ -56,7 +52,7 @@ def make_http_request(
 
 
 class RAXConnection(object):
-    _auth_token = None
+    _auth_token = list()
 
     def __init__(self, conf):
         self._conf = conf
@@ -69,9 +65,9 @@ class RAXConnection(object):
 
     @property
     def auth_token(self):
-        if self._auth_token == None:
+        if not self._auth_token:
             self.get_auth_token()
-        return self._auth_token
+        return self._auth_token[0]
 
     def create_queue(self, name):
         path = 'queues/%s' % (name)
@@ -129,7 +125,9 @@ class RAXConnection(object):
             (2,), 3)
 
         data = loads(resp.read())
-        self._auth_token = data['access']['token']['id']
+        while self._auth_token:
+            self._auth_token.pop()
+        self._auth_token.append(data['access']['token']['id'])
 
     def get_queue_stats(self, name):
         path = 'queues/%s/stats' % (name)
